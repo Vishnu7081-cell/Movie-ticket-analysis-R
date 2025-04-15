@@ -1,0 +1,96 @@
+---
+title: "CIAthree"
+author: "vishnu"
+date: "2025-04-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(tidyr)
+library(odbc)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+
+
+```{r load-data, echo=TRUE}
+# Set working directory
+setwd("C:/Users/HP/Desktop/NewDbsTheater")
+
+# Load datasets
+movies <- read.csv("movie.csv")
+ratings <- read.csv("rating.csv")
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r genre-user-time-analysis, echo=TRUE, message=FALSE, warning=FALSE}
+# Separate genres and filter
+movie_genres <- movies %>%
+  separate_rows(genres, sep = "\\|") %>%
+  filter(genres != "(no genres listed)")
+
+# Count ratings per genre
+genre_ratings <- ratings %>%
+  inner_join(movie_genres, by = "movieId") %>%
+  group_by(genres) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+# Plot
+ggplot(genre_ratings, aes(x = reorder(genres, count), y = count)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Most Rated Movie Genres", x = "Genre", y = "Number of Ratings")
+
+# Top genre per user
+user_pref <- ratings %>%
+  inner_join(movie_genres, by = "movieId") %>%
+  group_by(userId, genres) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(userId) %>%
+  top_n(1, count) %>%
+  ungroup()
+
+# Count how many users prefer each genre
+top_genre_counts <- user_pref %>%
+  count(genres, sort = TRUE)
+
+# Pie chart
+pie(top_genre_counts$n,
+    labels = top_genre_counts$genres,
+    main = "Most Preferred Genres by Users",
+    col = rainbow(length(top_genre_counts$genres)))
+
+# Extract hour from timestamp
+ratings$timestamp <- as.POSIXct(ratings$timestamp, origin = "1970-01-01")
+ratings$hour <- hour(ratings$timestamp)
+
+# Count by hour
+hourly_views <- ratings %>%
+  group_by(hour) %>%
+  summarise(count = n())
+
+# Plot
+ggplot(hourly_views, aes(x = reorder(as.factor(hour), count), y = count)) +
+  geom_bar(stat = "identity", fill = "orange") +
+  coord_flip() +
+  labs(title = "Peak Viewing Hours (Horizontal)", x = "Hour", y = "Number of Ratings") +
+  theme_minimal()
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
